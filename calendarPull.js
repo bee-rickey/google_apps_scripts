@@ -1,11 +1,14 @@
 /*
   Step 1: Get list of all calendars one has access to. 
-  Step 2: For the first calendar, go to the SHEET_NAME sheet. Sort by date column and delete all events that are greater than today - DAYS_BEFORE. This will allow for any future events to be updated in the SHEET_NAME sheet. DAYS_BEFORE is a small buffer given to accomodate for any events older than two days being updated retrospectively.
+  Step 2: For the first calendar, go to the SHEET_NAME sheet. Sort by date column and delete all events that are greater than today - DAYS_BEFORE.
+    This will allow for any future events to be updated in the SHEET_NAME sheet. 
+    DAYS_BEFORE is a small buffer given to accomodate for any events older than two days being updated retrospectively.
   Step 3: Pull all events starting from today - DAYS_BEFORE to today + NUMBER_OF_MONTHS for the current calendar.
   Step 4: For each of the event, get the required values and populate in SHEET_NAME sheet.
   Step 5: Repeate Step 3 and Step 4 for the rest of the calendars one has access to.
 
-  Additional optimisation: In step 2, while deleting, if you hit 10 consecutive events that are having a timestamp lesser than today - DAYS_BEFORE, then stop deleting rows and move to adding new events (this is to avoid unwanted deletion of whole sheet). 
+  Additional optimisation: In step 2, while deleting, if you hit 10 consecutive events that are having a timestamp lesser than today - DAYS_BEFORE, 
+  then stop deleting rows and move to adding new events (this is to avoid unwanted deletion of whole sheet). 
 
 */
 
