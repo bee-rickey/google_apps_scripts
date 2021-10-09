@@ -103,7 +103,7 @@ function listUpcomingEvents(calendarId, dateToFetchFrom) {
 }
 
 /* This function reads the sheet, removes all future events from the sheet and repopulates them. This is required to allow for modification or new events being accounted for */
-function addHolidayToSheet(calendarId, calendarName, deleteRows) {
+function addEventsToSheet(calendarId, calendarName, deleteRows) {
 
   if(calendarId == undefined) {
     return [];
@@ -191,7 +191,7 @@ function calendarEvents() {
   for(let i = 0; i < calendars.length; i++){
     if(i > 0)
       deleteRows = false;
-    addHolidayToSheet(calendars[i].getId(), calendars[i].getName(), deleteRows);
+    addEventsToSheet(calendars[i].getId(), calendars[i].getName(), deleteRows);
   }
 
   let spreadSheet = SpreadsheetApp.getActiveSpreadsheet();
