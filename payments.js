@@ -315,16 +315,19 @@ function yearlyDues(){
     
     if(paymentDetails[name] != undefined)
       transferredAmount = paymentDetails[name]['cumulativePaid'];
-    
+
     let currentMonthDues = 0;
     MONTH_ARRAY.forEach(function(monthName, index){
       if(patientsMap[patientId][monthName] == undefined){
         rowValues.push(' - ');
       } else {
-        if(currentMonth == monthName)
-          currentMonthDues = patientsMap[patientId][monthName]['due'];
-        else
+        if(currentMonth == monthName){
           rowValues.push(patientsMap[patientId][monthName]['due']);
+          currentMonthDues = patientsMap[patientId][monthName]['due'];
+        }
+        else {
+          rowValues.push(patientsMap[patientId][monthName]['due']);
+        }
 
         if(patientsMap[patientId][monthName]['comment'].trim() != '')
           commentsRange.push([rowId, index, patientsMap[patientId][monthName]['comment'], name]);     
