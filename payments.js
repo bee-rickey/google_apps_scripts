@@ -1,9 +1,9 @@
-const PAYMENT_SHEET_ID = '<>';
-const SESSION_SHEET_ID = '<>';
+const PAYMENT_SHEET_ID = '';
+const SESSION_SHEET_ID = '';
 const PAYMENT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/' + PAYMENT_SHEET_ID + '/edit#gid=0&range=' ;
 
 const START_MONTH = "January";
-const MONTH_ARRAY = [
+const CALENDAR_MONTH_ARRAY = [
   "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"
 ];
 
@@ -185,16 +185,15 @@ function calendarCumulative() {
   })
 }
 */
+
 function yearlyDues(){
   let sessionsSpreadsheet = SpreadsheetApp.openById(SESSION_SHEET_ID);
   let sessionsSheet = sessionsSpreadsheet.getSheetByName('Session Management');
   
-  let yearlySpreadsheet = SpreadsheetApp.openById('<>');
+  let yearlySpreadsheet = SpreadsheetApp.openById('');
   let yearlySheet = yearlySpreadsheet.getSheetByName('Yearly Dues');
   let sessionsRange = sessionsSheet.getRange(2, 1, sessionsSheet.getLastRow() - 1, sessionsSheet.getLastColumn());
-  let sessionValues = sessionsRange.getValues().filter(x => (x[17] === 'Not Paid' || x[17] === ""));
-
-  let paymentDetails = getPaymentDetails();
+  let sessionValues = sessionsRange.getValues().filter(x => (x[18] === 'Not Paid' || x[18] === ""));
 
   let terminationsSheet = sessionsSpreadsheet.getSheetByName('Terminations');
   let terminationsValues = terminationsSheet.getRange(2, 1, terminationsSheet.getLastRow() - 1, terminationsSheet.getLastColumn()).getValues();  
@@ -207,70 +206,84 @@ function yearlyDues(){
     terminatedPatients[terminationRow[1].trim()] = terminationRow[8];
   })
 
+  let years = new Set();
   let patientsMap = {};
   sessionValues.forEach(function(sessionDetails){
-    let patientId = sessionDetails[1].trim();
-    let month = sessionDetails[0];
+    let patientId = sessionDetails[2].trim();
+    let month = sessionDetails[1];
+    let year = sessionDetails[0];
 
     if(patientsMap[patientId] === undefined){
       patientsMap[patientId] = {};
-      patientsMap[patientId]['fn'] = sessionDetails[2];
-      patientsMap[patientId]['ln'] = sessionDetails[3];
-      patientsMap[patientId]['therapist'] = sessionDetails[10];
-      patientsMap[patientId]['chargedSessions'] = sessionDetails[13];
+      patientsMap[patientId]['fn'] = sessionDetails[3];
+      patientsMap[patientId]['ln'] = sessionDetails[4];
+      patientsMap[patientId]['therapist'] = sessionDetails[11];
+      patientsMap[patientId]['chargedSessions'] = sessionDetails[14];
       patientsMap[patientId]['totalDues'] = 0;
-      patientsMap[patientId]['services'] = {};
       patientsMap[patientId]['monthEnded'] = "";
       patientsMap[patientId]['status'] = "Current";
       if(terminatedPatients[patientId] != undefined) {
         patientsMap[patientId]['status'] = "Past";
         patientsMap[patientId]['monthEnded'] = terminatedPatients[patientId];
       }
+    } else {
+      patientsMap[patientId]['therapist'] = sessionDetails[11];
     }
 
-    if(patientsMap[patientId][month] == undefined){
-      patientsMap[patientId][month] = {};
-      patientsMap[patientId][month]['due'] = 0;
-      patientsMap[patientId][month]['details'] = [];
+    if(patientsMap[patientId][year] === undefined)
+      patientsMap[patientId][year] = {}
+
+    if(patientsMap[patientId][year][month] === undefined){
+      patientsMap[patientId][year][month] = {};
+      patientsMap[patientId][year][month]['due'] = 0;
+      patientsMap[patientId][year][month]['details'] = [];
     }
 
     let due = 0;
     
-    if(sessionDetails[15] != undefined && sessionDetails[15].length != 0)
-      due = sessionDetails[15];
+    if(sessionDetails[16] != undefined && sessionDetails[16].length != 0)
+      due = sessionDetails[16];
 
     let comment = "";
-    if(sessionDetails[13] === 1){
-      due = 1000;
-      comment = "Single session. Defaulting to Rs 1000";
-    }
     
-    if(sessionDetails[13] === 0){
+    /*
+    if(sessionDetails[13] === 1 && sessionDetails[12].trim().toLowerCase() === "membership fee"){
+      due = 700;
+      comment = "Single session, membership fee. Defaulting to Rs 700";
+    }
+    */
+
+    if(sessionDetails[14] === 0){
       due = 0;
-      comment = "Charged sessions = " + sessionDetails[13] + ". Defaulting to Rs 0";
+      comment = "Charged sessions = " + sessionDetails[14] + ". Defaulting to Rs 0";
     }
 
-    if(patientsMap[patientId]['services'][sessionDetails[4]] == undefined){
-      patientsMap[patientId]['services'][sessionDetails[4]] = "\n\t" + month + " : " + due;
+    if(patientsMap[patientId][year]['services'] === undefined)
+      patientsMap[patientId][year]['services'] = {}
+
+    if(patientsMap[patientId][year]['services'][sessionDetails[5]] === undefined){
+      patientsMap[patientId][year]['services'][sessionDetails[5]] = "\n\t" + month + " : " + due;
     } else {
-      patientsMap[patientId]['services'][sessionDetails[4]] += "\n\t" + month + " : " + due;
+      patientsMap[patientId][year]['services'][sessionDetails[5]] += "\n\t" + month + " : " + due;
     }
 
     let rowDetails = {
       'due': due,
-      'month': sessionDetails[0],
-      'service': sessionDetails[4],
+      'month': sessionDetails[1],
+      'year': sessionDetails[0],
+      'service': sessionDetails[5],
       'comment': comment
     }
-
-    patientsMap[patientId][month]['due'] += due;
+    if(sessionDetails[0] != undefined && sessionDetails[0].length != 0)
+      years.add(sessionDetails[0]);
+    patientsMap[patientId][year][month]['due'] += due;
     patientsMap[patientId]['totalDues'] += due;
-    patientsMap[patientId][month]['details'].push(rowDetails);
-    patientsMap[patientId][month]['comment'] = comment;
+    patientsMap[patientId][year][month]['details'].push(rowDetails);
+    patientsMap[patientId][year][month]['comment'] = comment;
   })
 
-  //console.log(patientsMap);
-
+  
+  //Start reading yearly sheet
   let yearlyDuesValues = yearlySheet.getRange(1, 1, yearlySheet.getLastRow(), yearlySheet.getLastColumn()).getValues();
   let notes = yearlySheet.getRange(1, 1, yearlySheet.getLastRow(), yearlySheet.getLastColumn()).getNotes();
   let existingYearlyDuesRows = {};
@@ -283,6 +296,7 @@ function yearlyDues(){
 
     existingYearlyDuesRows[yearlyDuesRow[0].trim()] = [yearlyDuesRow[3]];
 
+    /*
     let extraColumns = yearlyDuesRow.slice(23, yearlyDuesRow.length);
     
     if(extraColumns.length < 10){
@@ -290,13 +304,15 @@ function yearlyDues(){
     }
 
     existingYearlyDuesRows[yearlyDuesRow[0].trim()] = existingYearlyDuesRows[yearlyDuesRow[0].trim()].concat(extraColumns);
+    */
   })
   
-  let today = new Date();
-  let currentMonth = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate()).toLocaleString('default', { month: 'long' });
+  //let today = new Date();
+  //let currentMonth = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate()).toLocaleString('default', { month: 'long' });
   let commentsRange = [];
-  let rowId = 1 ;
+  //let rowId = 1 ;
   let outputArray = [];
+
   for(var patientId in patientsMap){
     if(patientId === undefined || patientId === "")
       continue;
@@ -307,21 +323,39 @@ function yearlyDues(){
 
     let rowValues = [patientId, patientsMap[patientId]['fn'], patientsMap[patientId]['ln'], 
                     phoneNumber, patientsMap[patientId]['therapist'], 
-                    patientsMap[patientId]['status'], patientsMap[patientId]['monthEnded']];
+                    patientsMap[patientId]['status'], patientsMap[patientId]['monthEnded'], patientsMap[patientId]['totalDues']];
 
     let services = "";
-    let name = patientsMap[patientId]['fn'].trim().toLowerCase() + "_" + patientsMap[patientId]['ln'].trim().toLowerCase();
-    let transferredAmount = "No data found";
-    
-    if(paymentDetails[name] != undefined)
-      transferredAmount = paymentDetails[name]['cumulativePaid'];
+    //let name = patientsMap[patientId]['fn'].trim().toLowerCase() + "_" + patientsMap[patientId]['ln'].trim().toLowerCase();
 
-    let currentMonthDues = 0;
-    MONTH_ARRAY.forEach(function(monthName, index){
-      if(patientsMap[patientId][monthName] == undefined){
+    //let currentMonthDues = 0;
+    let monthArray = [];
+
+    years.forEach(function(year){
+      CALENDAR_MONTH_ARRAY.forEach(function(month){
+        monthArray.push(year + " " + month)
+      })
+    })
+    
+
+    monthArray.forEach(function(yearMonth){
+      let yearName = yearMonth.split(' ')[0];
+      let monthName = yearMonth.split(' ')[1];
+
+      if(patientsMap[patientId][yearName] === undefined || 
+        patientsMap[patientId][yearName][monthName] === undefined){
         rowValues.push(' - ');
       } else {
-        if(currentMonth == monthName){
+        rowValues.push(patientsMap[patientId][yearName][monthName]['due']);
+      }
+    })
+    
+    /*
+    CALENDAR_MONTH_ARRAY.forEach(function(monthName, index){
+      if(patientsMap[patientId][monthName] === undefined){
+        rowValues.push(' - ');
+      } else {
+        if(currentMonth === monthName){
           rowValues.push(patientsMap[patientId][monthName]['due']);
           currentMonthDues = patientsMap[patientId][monthName]['due'];
         }
@@ -333,7 +367,26 @@ function yearlyDues(){
           commentsRange.push([rowId, index, patientsMap[patientId][monthName]['comment'], name]);     
       }
     })
+    */
     
+    years.forEach(function(year){
+        
+        if(patientsMap[patientId][year] === undefined)
+          return
+        
+        if(services.length === 0)
+          services = year + ":";
+        else
+          services += "\n" + year + ":";
+        
+        for (var service in patientsMap[patientId][year]['services']) {
+          services += "\n" + service + patientsMap[patientId][year]['services'][service] ;
+        }
+      
+    })
+    
+
+    /*
     for (var service in patientsMap[patientId]['services']) {
       if (services.length == 0){
         services = service + patientsMap[patientId]['services'][service] ;
@@ -341,18 +394,23 @@ function yearlyDues(){
         services += "\n" + service + patientsMap[patientId]['services'][service] ;
       }
     }
-  
-    rowValues = rowValues.concat([currentMonthDues, patientsMap[patientId]['totalDues'] - currentMonthDues, transferredAmount, services]);
+    */
+    //rowValues = rowValues.concat([patientsMap[patientId]['totalDues'], services]);
+    rowValues.push(services);
     
+    /*
     if(existingYearlyDuesRows[patientId] != undefined && existingYearlyDuesRows[patientId].length > 1)
       rowValues = rowValues.concat(existingYearlyDuesRows[patientId].splice(1,existingYearlyDuesRows[patientId].length));
     else 
       rowValues = rowValues.concat(Array(10).fill(''));
+    */
 
     outputArray.push(rowValues);
-    rowId++;
+    //rowId++;
   }
 
+  console.log(outputArray[0]);
+  
   let maxRows = yearlySheet.getMaxRows();
   let startRow = 2;
   if(maxRows === 1)
@@ -367,6 +425,7 @@ function yearlyDues(){
 
   yearlySheet.getRange(yearlySheet.getLastRow()+1, 1, outputArray.length, outputArray[0].length).setValues(outputArray);
 
+  /*
   let formulasBackup = [];
   for(let row in formulas)
     for(let column in formulas[row])
@@ -379,12 +438,12 @@ function yearlyDues(){
   commentsRange.forEach(function(comment){
     range=yearlySheet.getRange(comment[0] + 1, comment[1] + 1 + 7).setNote(comment[2]);
   }) 
-
+*/
   range = yearlySheet.getRange(2, 1, yearlySheet.getLastRow() - 1, yearlySheet.getLastColumn());
   range.setHorizontalAlignment("left");
   range.sort([{column: 5, ascending: true}]);
   //yearlySheet.setRowHeights(2, yearlySheet.getMaxRows()-1, 50);
-
+  /*
   formulasBackup.forEach(function(formula){
     let row = parseInt(formula[0]) + 2;
     let column = parseInt(formula[1]) + 1;
@@ -392,4 +451,81 @@ function yearlyDues(){
     range.setFormula(formula[2]);
     console.log('Setting formula: ' + formula[2] + ' r: ' + row + ' c ' + column);
   })  
+
+  //yearlySheet.setFrozenColumns(23);
+  //yearlySheet.setFrozenro(23);
+  */
 }
+
+function doGet() {
+  return HtmlService.createTemplateFromFile("chart").evaluate();
+}
+
+function getValues(){
+  var chartSheet = SpreadsheetApp.openById('')
+      .getSheetByName('Yearly Dues')
+
+  var chartSheetValues = chartSheet.getRange(1, 1, chartSheet.getLastRow(), chartSheet.getLastColumn())
+      .getDisplayValues();
+
+  var data = {};
+  var lineChartData = [];
+  var today = new Date() ;
+  var currentMonth = ("0" + (today.getMonth() + 1)).slice(-2) + "-" + today.getFullYear();
+  var currentMonthIndex = 0;
+
+  let monthlyData = {};
+
+  chartSheetValues.forEach(function(entry, index){
+    if(index === 0){
+      entry.forEach(function(header, headerIndex){
+        if(headerIndex < 8 || headerIndex === entry.length - 1)
+          return;
+        monthlyData[headerIndex] = {"sum": 0, "name": header};
+      })
+    } else {
+      entry.forEach(function(row, columnIndex){
+        if(columnIndex < 8 || columnIndex === entry.length - 1)
+          return;
+
+        let amount = 0 ;
+        if(!isNaN(parseInt(row)))
+          amount = parseInt(row);
+        
+        monthlyData[columnIndex]['sum'] += amount;
+      })
+      
+    }
+  });
+
+  let totalDues = 0;
+  lineChartData[0] = ["Month", "Dues", {role: 'style'}];
+  for(key in monthlyData){
+    if(monthlyData[key]['sum'] === 0)
+      continue;
+    lineChartData.push([monthlyData[key]['name'], monthlyData[key]['sum'], 'color: #76A7FA']);
+    totalDues += monthlyData[key]['sum'];
+  }
+  
+
+
+
+  /*
+  var pieChartData = [['Category', 'Expenses']];
+
+  chartSheetValues[0].forEach(function(header, headerIndex){
+    let row = [];
+    if(headerIndex === 0)
+      return;
+    row.push(header);
+    row.push(parseInt(chartSheetValues[currentMonthIndex][headerIndex]));
+
+    pieChartData.push(row);
+  })
+  */
+  data['lineChartData'] = lineChartData;
+  data['totalDues'] = totalDues;
+  //data['pieChartData'] = pieChartData;
+  return data;
+}
+
