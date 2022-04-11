@@ -186,6 +186,101 @@ function calendarCumulative() {
 }
 */
 
+function getSessionData(sheetId){
+  let sessionsSpreadsheet = SpreadsheetApp.openById(sheetId);
+  let sessionsSheet = sessionsSpreadsheet.getSheetByName('Session Management');
+  
+  let sessionsRange = sessionsSheet.getRange(2, 1, sessionsSheet.getLastRow() - 1, sessionsSheet.getLastColumn());
+  let sessionValues = sessionsRange.getValues().filter(x => (x[18] === 'Not Paid' || x[18] === ""));
+
+  let terminationsSheet = sessionsSpreadsheet.getSheetByName('Terminations');
+  let terminationsValues = terminationsSheet.getRange(2, 1, terminationsSheet.getLastRow() - 1, terminationsSheet.getLastColumn()).getValues();  
+
+  let terminatedPatients = {};
+  terminationsValues.forEach(function(terminationRow){
+    if(terminationRow[1] === undefined || terminationRow[1].trim().length === 0){
+      console.log(terminationRow[2] + " " + terminationRow[3] + " does not have HNI patient ID mapped in terminations sheet");
+    }
+    terminatedPatients[terminationRow[1].trim()] = terminationRow[8];
+  })
+
+  let years = new Set();
+  let patientsMap = {};
+  sessionValues.forEach(function(sessionDetails){
+    let patientId = sessionDetails[2].trim();
+    let month = sessionDetails[1];
+    let year = sessionDetails[0];
+
+    if(patientsMap[patientId] === undefined){
+      patientsMap[patientId] = {};
+      patientsMap[patientId]['fn'] = sessionDetails[3];
+      patientsMap[patientId]['ln'] = sessionDetails[4];
+      patientsMap[patientId]['therapist'] = sessionDetails[11];
+      patientsMap[patientId]['chargedSessions'] = sessionDetails[14];
+      patientsMap[patientId]['totalDues'] = 0;
+      patientsMap[patientId]['monthEnded'] = "";
+      patientsMap[patientId]['status'] = "Current";
+      if(terminatedPatients[patientId] != undefined) {
+        patientsMap[patientId]['status'] = "Past";
+        patientsMap[patientId]['monthEnded'] = terminatedPatients[patientId];
+      }
+    } else {
+      patientsMap[patientId]['therapist'] = sessionDetails[11];
+    }
+
+    if(patientsMap[patientId][year] === undefined)
+      patientsMap[patientId][year] = {}
+
+    if(patientsMap[patientId][year][month] === undefined){
+      patientsMap[patientId][year][month] = {};
+      patientsMap[patientId][year][month]['due'] = 0;
+      patientsMap[patientId][year][month]['details'] = [];
+    }
+
+    let due = 0;
+    
+    if(sessionDetails[16] != undefined && sessionDetails[16].length != 0)
+      due = sessionDetails[16];
+
+    let comment = "";
+    
+    /*
+    if(sessionDetails[13] === 1 && sessionDetails[12].trim().toLowerCase() === "membership fee"){
+      due = 700;
+      comment = "Single session, membership fee. Defaulting to Rs 700";
+    }
+    */
+
+    if(sessionDetails[14] === 0){
+      due = 0;
+      comment = "Charged sessions = " + sessionDetails[14] + ". Defaulting to Rs 0";
+    }
+
+    if(patientsMap[patientId][year]['services'] === undefined)
+      patientsMap[patientId][year]['services'] = {}
+
+    if(patientsMap[patientId][year]['services'][sessionDetails[5]] === undefined){
+      patientsMap[patientId][year]['services'][sessionDetails[5]] = "\n\t" + month + " : " + due;
+    } else {
+      patientsMap[patientId][year]['services'][sessionDetails[5]] += "\n\t" + month + " : " + due;
+    }
+
+    let rowDetails = {
+      'due': due,
+      'month': sessionDetails[1],
+      'year': sessionDetails[0],
+      'service': sessionDetails[5],
+      'comment': comment
+    }
+    if(sessionDetails[0] != undefined && sessionDetails[0].length != 0 && !isNaN(parseInt(sessionDetails[0])))
+      years.add(sessionDetails[0]);
+    patientsMap[patientId][year][month]['due'] += due;
+    patientsMap[patientId]['totalDues'] += due;
+    patientsMap[patientId][year][month]['details'].push(rowDetails);
+    patientsMap[patientId][year][month]['comment'] = comment;
+  })
+}
+
 function yearlyDues(){
   let sessionsSpreadsheet = SpreadsheetApp.openById(SESSION_SHEET_ID);
   let sessionsSheet = sessionsSpreadsheet.getSheetByName('Session Management');
@@ -274,7 +369,7 @@ function yearlyDues(){
       'service': sessionDetails[5],
       'comment': comment
     }
-    if(sessionDetails[0] != undefined && sessionDetails[0].length != 0)
+    if(sessionDetails[0] != undefined && sessionDetails[0].length != 0 && !isNaN(parseInt(sessionDetails[0])))
       years.add(sessionDetails[0]);
     patientsMap[patientId][year][month]['due'] += due;
     patientsMap[patientId]['totalDues'] += due;
